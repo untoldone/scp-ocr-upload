@@ -1,0 +1,77 @@
+#!/bin/bash
+
+#### Check required Environment settings
+if [[ -z "${GDRIVE_AUTH_JSON}" ]]; then
+  echo Environment variable GDRIVE_AUTH_JSON must be set >&2
+  exit 1
+fi
+
+if [[ -z "${AUTHORIZED_KEY}" ]]; then
+  echo Environment variable AUTHORIZED_KEY must be set >&2
+  exit 1
+fi
+
+if [[ -z "${PARENT_FOLDER_ID}" ]]; then
+  echo Environment variable PARENT_FOLDER_ID must be set >&2
+  exit 1
+fi
+
+if [[ -z "${SSH_ED25519_KEY}" ]]; then
+  echo Environment variable SSH_ED25519_KEY must be set >&2
+  exit 1
+fi
+
+if [[ -z "${SSH_RSA_KEY}" ]]; then
+  echo Environment variable SSH_ED25519_KEY must be set >&2
+  exit 1
+fi
+
+if [[ -z "${SSH_USERNAME}" ]]; then
+  echo Environment variable SSH_USERNAME must be set >&2
+  exit 1
+fi
+
+#### Create User
+if id -u "$SSH_USERNAME" >/dev/null 2>&1; then
+  echo 'User already exists'
+else
+  adduser --disabled-password --gecos "" --ingroup inputoutput $SSH_USERNAME
+fi
+
+#### Generate GDrive json auth file
+mkdir -p /root/.gdrive
+echo "$GDRIVE_AUTH_JSON" > /root/.gdrive/auth.json
+
+#### SSH Server Setup
+echo "$SSH_ED25519_KEY" > /etc/ssh/ssh_host_ed25519_key
+echo "$SSH_RSA_KEY" > /etc/ssh/ssh_host_rsa_key
+chmod 600 /etc/ssh/ssh_host_ed25519_key || true
+chmod 600 /etc/ssh/ssh_host_rsa_key || true
+
+#### Setup SSH user / keys
+mkdir -p /home/$SSH_USERNAME/.ssh
+echo "$AUTHORIZED_KEY" > /home/$SSH_USERNAME/.ssh/authorized_keys
+
+#### Start SSH Server
+/usr/sbin/sshd -D &
+
+#### Watch for and convert pdf files
+
+inotifywait -m /input -e close_write -e moved_to |
+  while read path action file; do
+    if [[ "$file" =~ .*pdf$ ]]; then # Does the file end with .pdf?
+      # Use English, don't convert to PDF/A (default for ocrmypdf), use hocr renderer as may have higher quality OCR, rotate pages if needed, deskew if needed
+      ocrmypdf -l eng --output-type pdf --pdf-renderer hocr --rotate-pages --deskew /input/$file /output/$file
+
+      #### Upload files to Google Drive
+      /usr/local/bin/gdrive --service-account auth.json upload --parent $PARENT_FOLDER_ID /output/$file
+
+      rm /output/$file
+    else
+      /usr/local/bin/gdrive --service-account auth.json upload --parent $PARENT_FOLDER_ID /input/$file
+    fi
+
+    rm /input/$file
+
+    echo "Completed processing: '/input/$file'"
+  done
