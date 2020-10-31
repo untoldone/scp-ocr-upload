@@ -2,7 +2,7 @@
 
 This is a docker container that will accept a file uploaded via SCP/SFTP, will then run Tesseract OCR via OCRmyPDF, then will upload the results to a Google Drive folder via GDrive.
 
-The original use case was to simplify the use of Brother scanners such as the Brother ASD-2700W. Scanners like these have "one-touch" scan button which can scan to a local computer, a network share, an FTP site or an SFTP site. However, while Brother scanners ship with OCR software that can be used from the PC, the OCR software cannot be used by the "one-touch" scan button. Additionally, scanning requires a PC with drivers etc nearby.
+The original use case was to simplify the use of Brother scanners such as the Brother ASD-2700W. Scanners like these have a "one-touch" scan button which can scan to a local computer, a network share, an FTP site or an SFTP site. However, while Brother scanners ship with OCR software that can be used from the PC, the OCR software cannot be used by the "one-touch" scan button. Additionally, scanning requires a PC with drivers etc nearby.
 
 This allows for the scanning of OCR-d PDFs via the "one-touch" scan functionality. It works by running an SSH server within a docker container, when a file is uploaded via SFTP to `/input`, the container will OCR and upload the resulting file to Google Drive.
 
@@ -32,7 +32,7 @@ This process only supports Google Drive folders owned by service accounts (as op
 Get started by running `docker run -it --entrypoint bash untoldone/scp-ocr-upload:latest` -- this will put you in an environment with access to the `GDrive` command.
 
 1. Run `mkdir -p /root/.gdrive`
-2. Copy the contents of your file to `/root/.gdrive/creds.json`. It might be helpful to install a text editor of your choice to do this, e.g. `apt-get update; apt-get install -y vim`
+2. Copy the contents of your GCP JSON credentials to `/root/.gdrive/creds.json`. It might be helpful to install a text editor of your choice to do this, e.g. `apt-get update; apt-get install -y vim`
 3. Create a Google Drive directory you will share with your personal account via `gdrive --service-account creds.json mkdir Scans` (replace Scans with name of your choice)
 4. Get Object ID via `gdrive --service-account creds.json list`. This should be saved and used for the `PARENT_FOLDER_ID` environment variable
 5. Share the folder with your personal account via `gdrive --service-account creds.json share <Object ID from last step> --role writer --type user --email "<Your Gmail Email>"`
